@@ -45,6 +45,54 @@ module VCAP::CloudController
         end
       end
 
+      describe 'app_port' do
+        let(:body) do
+          {
+          relationships: {
+              route: { guid: 'some-route-guid' },
+              process: { type: 'web' },
+              app: { guid: '123' }
+            }
+          }
+        end
+
+        context 'when app_port is present' do
+          it 'is valid' do
+            body[:app_port] = 8888
+            message = RouteMappingsCreateMessage.new(body)
+            expect(message).to be_valid
+          end
+
+          it 'is not valid when app_port is a string' do
+            body[:app_port] = 'trout'
+            message = RouteMappingsCreateMessage.new(body)
+            expect(message).not_to be_valid
+            expect(message.errors_on(:app_port)).to include('is not a number')
+          end
+
+          it 'is not valid when app_port is a fraction' do
+            body[:app_port] = 7.8
+            message = RouteMappingsCreateMessage.new(body)
+            expect(message).not_to be_valid
+            expect(message.errors_on(:app_port)).to include('must be an integer')
+          end
+
+          it 'is not valid when app_port is less than 0' do
+            body[:app_port] = -1
+            message = RouteMappingsCreateMessage.new(body)
+            expect(message).not_to be_valid
+            expect(message.errors_on(:app_port)).to include('must be greater than 0')
+          end
+        end
+
+        context 'when app_port is not present' do
+          it 'is not valid' do
+            message = RouteMappingsCreateMessage.new(body)
+            expect(message).to be_valid
+          end
+        end
+      end
+
       describe 'app' do
         it 'is not valid when app is missing' do
           message = RouteMappingsCreateMessage.new({ relationships: {} })
@@ -106,6 +154,11 @@ module VCAP::CloudController
         it 'is valid when process type is nil' do
           message = RouteMappingsCreateMessage.new({ relationships: { process: { type: nil } } })
           expect(message.errors_on(:process_type)).to be_empty
+        end
+
+        it 'defaults process_type to "web"' do
+          message = RouteMappingsCreateMessage.new({ relationships: { process: { type: nil } } })
+          expect(message.process_type).to eq('web')
         end
       end
     end

@@ -10,10 +10,15 @@ module VCAP::CloudController
       @user_email = user_email
     end
 
-    def add(app, route, process_model, desired_process_type)
+    def add(app, route, process_model, message)
       validate_space!(app, route)
 
-      route_mapping = RouteMappingModel.create(app: app, route: route, process_type: desired_process_type)
+      route_mapping = RouteMappingModel.create(
+        app:          app,
+        route:        route,
+        process_type: message.process_type,
+        app_port:     message.app_port
+      )
 
       unless process_model.nil?
         process_model.add_route(route)
@@ -31,7 +36,7 @@ module VCAP::CloudController
       route_mapping
 
     rescue Sequel::ValidationFailed => e
-      if e.errors && e.errors.on([:app_guid, :route_guid, :process_type]).include?(:unique)
+      if e.errors && e.errors.on([:app_guid, :route_guid, :process_type]) && e.errors.on([:app_guid, :route_guid, :process_type]).include?(:unique)
         raise InvalidRouteMapping.new(DUPLICATE_MESSAGE)
       end
 

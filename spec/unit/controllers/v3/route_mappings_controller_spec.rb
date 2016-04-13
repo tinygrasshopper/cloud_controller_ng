@@ -11,6 +11,7 @@ describe RouteMappingsController, type: :controller do
   describe '#create' do
     let(:req_body) do
       {
+        app_port: 8888,
         relationships: {
           app:     { guid: app.guid },
           route:   { guid: route.guid },
@@ -39,44 +40,6 @@ describe RouteMappingsController, type: :controller do
         post :create, body: req_body
 
         expect(response.body).to include 'UnprocessableEntity'
-      end
-    end
-
-    context 'when process type is not provided in the request' do
-      let(:process_type) { nil }
-      let(:route_fetcher) { instance_double(VCAP::CloudController::AddRouteFetcher) }
-      before do
-        allow(VCAP::CloudController::AddRouteFetcher).to receive(:new).and_return(route_fetcher)
-        allow(route_fetcher).to receive(:fetch)
-      end
-
-      it 'defaults to "web"' do
-        post :create, body: req_body
-
-        expect(route_fetcher).to have_received(:fetch).with(app.guid, route.guid, 'web')
-      end
-    end
-
-    context 'when process type is provided in the request' do
-      let(:process_type) { 'worker' }
-      let(:route_fetcher) { instance_double(VCAP::CloudController::AddRouteFetcher) }
-      let(:route_mapping_create) { VCAP::CloudController::RouteMappingCreate.new('admin', 'admin@example.com') }
-      before do
-        allow(VCAP::CloudController::AddRouteFetcher).to receive(:new).and_return(route_fetcher)
-        allow(route_fetcher).to receive(:fetch).and_return [app, route, app_process, space, org]
-      end
-
-      it 'fetches the requested process type' do
-        post :create, body: req_body
-
-        expect(route_fetcher).to have_received(:fetch).with(app.guid, route.guid, 'worker')
-      end
-
-      it 'creates the specified process type' do
-        expect_any_instance_of(VCAP::CloudController::RouteMappingCreate).to receive(:add).with(app, route, app_process, 'worker').and_call_original
-        post :create, body: req_body
-
-        expect(VCAP::CloudController::RouteMappingModel.first.process_type).to eq 'worker'
       end
     end
 
@@ -130,26 +93,6 @@ describe RouteMappingsController, type: :controller do
 
         expect(response.status).to eq 422
         expect(response.body).to include 'UnprocessableEntity'
-      end
-    end
-
-    context 'when route is not in the same space as the app' do
-      let(:route_in_other_space) { VCAP::CloudController::Route.make(space: VCAP::CloudController::Space.make) }
-      let(:req_body) do
-        {
-          relationships: {
-            app:     { guid: app.guid },
-            route:   { guid: route_in_other_space.guid },
-            process: { type: 'web' }
-          }
-        }
-      end
-
-      it 'raises UnprocessableRequest' do
-        post :create, body: req_body
-
-        expect(response.status).to eq 422
-        expect(response.body).to include 'belong to the same space'
       end
     end
 
