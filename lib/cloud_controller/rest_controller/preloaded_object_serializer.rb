@@ -92,9 +92,9 @@ module VCAP::CloudController::RestController
     def serialize_relationships(relationships, controller, depth, obj, opts, parents, orphans)
       response = {}
       (relationships || {}).each do |relationship_name, association|
-        associated_model = get_associated_model_class_for(obj, association.association_name)
-        next unless associated_model
-        associated_controller = VCAP::CloudController.controller_from_model_name(associated_model.name)
+        associated_class_name = class_name_for_association(obj, association)
+        return unless associated_class_name
+        associated_controller = VCAP::CloudController.controller_from_model_name(associated_class_name)
         next unless associated_controller
         add_relationship_url_to_response(response, controller, associated_controller, relationship_name, association, obj)
         next if relationship_link_only?(association, associated_controller, relationship_name, opts, depth, parents)
@@ -159,11 +159,15 @@ module VCAP::CloudController::RestController
       obj.associations[association.association_name]
     end
 
-    def get_associated_model_class_for(obj, name)
-      model_association = obj.model.association_reflection(name)
-      if model_association
-        model_association.associated_class
+    def class_name_for_association(obj, association)
+      if obj.associations.key?(association.association_name.to_sym)
+        instance = obj.associations[association.association_name]
+        instance = instance.first unless association.is_a?(ControllerDSL::ToOneAttribute)
+        return instance.class.name if instance
       end
+      associated_model = obj.model.association_reflection(association.association_name).try(:associated_class)
+      return unless associated_model
+      associated_model.name
     end
   end
 
