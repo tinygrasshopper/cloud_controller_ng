@@ -53,7 +53,7 @@ module VCAP::CloudController::RestController
 
       metadata_hash = {
         'guid' => obj.guid,
-        'url' => controller.url_for_guid(obj.guid),
+        'url' => controller.url_for_obj(obj),
         'created_at' => obj.created_at,
       }
 
@@ -136,10 +136,10 @@ module VCAP::CloudController::RestController
       if association.is_a?(ControllerDSL::ToOneAttribute)
         associated_model_instance = get_preloaded_association_contents!(obj, association)
         if associated_model_instance
-          associated_url = associated_controller.url_for_guid(associated_model_instance.guid)
+          associated_url = associated_controller.url_for_obj(associated_model_instance)
         end
       else
-        associated_url = "#{controller.url_for_guid(obj.guid)}/#{relationship_name}"
+        associated_url = "#{controller.url_for_obj(obj)}/#{relationship_name}"
       end
 
       response["#{relationship_name}_url"] = associated_url if associated_url

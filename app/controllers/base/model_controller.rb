@@ -327,6 +327,10 @@ module VCAP::CloudController::RestController
         "#{path}/#{guid}"
       end
 
+      def url_for_obj(obj)
+        "#{path}/#{obj.guid}"
+      end
+
       # Model associated with this rest/api endpoint
       #
       # @param [String] name The base name of the model class.

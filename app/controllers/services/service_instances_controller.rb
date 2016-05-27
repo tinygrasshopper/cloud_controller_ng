@@ -192,14 +192,12 @@ module VCAP::CloudController
       end
     end
 
-    def self.url_for_guid(guid)
-      object = ServiceInstance.where(guid: guid).first
-
+    def self.url_for_obj(object)
       if object.class == UserProvidedServiceInstance
         user_provided_path = VCAP::CloudController::UserProvidedServiceInstancesController.path
-        return "#{user_provided_path}/#{guid}"
+        return "#{user_provided_path}/#{object.guid}"
       else
-        return "#{path}/#{guid}"
+        return "#{path}/#{object.guid}"
       end
     end
 

@@ -22,6 +22,16 @@ module VCAP::CloudController
       do_delete(find_guid_and_validate_access(:delete, guid))
     end
 
+    def self.url_for_obj(object)
+      if object.class == SharedDomain
+        return "/v2/shared_domains/#{object.guid}"
+      elsif object.class == PrivateDomain
+        return "/v2/private_domains/#{object.guid}"
+      else
+        return "#{path}/#{object.guid}"
+      end
+    end
+
     deprecated_endpoint(path)
     define_messages
     define_routes
