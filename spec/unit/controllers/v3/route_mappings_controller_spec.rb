@@ -4,7 +4,7 @@ describe RouteMappingsController, type: :controller do
   let(:app) { VCAP::CloudController::AppModel.make }
   let(:space) { app.space }
   let(:org) { space.organization }
-  let!(:app_process) { VCAP::CloudController::App.make(app_guid: app.guid, type: 'web', space_guid: space.guid) }
+  let!(:app_process) { VCAP::CloudController::App.make(:process, app_guid: app.guid, type: 'web', space_guid: space.guid) }
   let(:route) { VCAP::CloudController::Route.make(space: space) }
   let(:process_type) { 'web' }
 

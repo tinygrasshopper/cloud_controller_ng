@@ -7,7 +7,7 @@ module VCAP::CloudController
     let(:app) { AppModel.make }
     let(:user) { double(:user, guid: '7') }
     let(:user_email) { '1@2.3' }
-    let(:process) { AppFactory.make(app_guid: app.guid, space: space) }
+    let(:process) { App.make(:process, app: app, space: space) }
     let(:process_type) { process.type }
     let(:message) { RouteMappingsCreateMessage.new({ app_port: 8888, relationships: { process: { type: process_type } } }) }
 
@@ -17,6 +17,32 @@ module VCAP::CloudController
       it 'associates the app to the route' do
         route_mapping_create.add(app, route, process, message)
         expect(app.reload.routes).to eq([route])
+      end
+
+      it 'associates the route to the process' do
+        route_mapping_create.add(app, route, process, message)
+        expect(process.reload.routes).to eq([route])
+      end
+
+      describe 'recording events' do
+        let(:event_repository) { double(Repositories::AppEventRepository) }
+
+        before do
+          allow(Repositories::AppEventRepository).to receive(:new).and_return(event_repository)
+          allow(event_repository).to receive(:record_map_route)
+        end
+
+        it 'creates an event for adding a route to an app' do
+          route_mapping = route_mapping_create.add(app, route, process, message)
+
+          expect(event_repository).to have_received(:record_map_route).with(
+            app,
+            route,
+            user.guid,
+            user_email,
+            route_mapping: route_mapping
+          )
+        end
       end
 
       context 'when the process type does not yet exist' do
@@ -44,7 +70,7 @@ module VCAP::CloudController
         end
 
         context 'for a different process type' do
-          let(:worker_process) { AppFactory.make(app_guid: app.guid, space: space, type: 'worker') }
+          let(:worker_process) { App.make(:process, app_guid: app.guid, space: space, type: 'worker') }
           let(:worker_message) { RouteMappingsCreateMessage.new({ app_port: 8888, relationships: { process: { type: 'worker' } } }) }
 
           it 'allows a new route mapping' do
@@ -54,59 +80,9 @@ module VCAP::CloudController
         end
       end
 
-      it 'associates the route to the process' do
-        route_mapping_create.add(app, route, process, message)
-        expect(process.reload.routes).to eq([route])
-      end
-
-      it 'notifies the dea if the process is started and staged' do
-        process.update(state: 'STARTED')
-        process.update(package_state: 'STAGED')
-        expect(Dea::Client).to receive(:update_uris).with(process)
-        route_mapping_create.add(app, route, process, message)
-        expect(process.reload.routes).to eq([route])
-      end
-
-      it 'does not notify the dea if the process not started' do
-        process.update(state: 'STOPPED')
-        process.update(package_state: 'STAGED')
-        expect(Dea::Client).not_to receive(:update_uris).with(process)
-        route_mapping_create.add(app, route, process, message)
-        expect(process.reload.routes).to eq([route])
-      end
-
-      it 'does not notify the dea if the process not staged' do
-        process.update(state: 'STARTED')
-        process.update(package_state: 'PENDING')
-        expect(Dea::Client).not_to receive(:update_uris).with(process)
-        route_mapping_create.add(app, route, process, message)
-        expect(process.reload.routes).to eq([route])
-      end
-
-      describe 'recording events' do
-        let(:event_repository) { double(Repositories::AppEventRepository) }
-
-        before do
-          allow(Repositories::AppEventRepository).to receive(:new).and_return(event_repository)
-          allow(event_repository).to receive(:record_map_route)
-        end
-
-        it 'creates an event for adding a route to an app' do
-          route_mapping = route_mapping_create.add(app, route, process, message)
-
-          expect(event_repository).to have_received(:record_map_route).with(
-            app,
-            route,
-            user.guid,
-            user_email,
-            route_mapping: route_mapping
-          )
-        end
-      end
-
       context 'when the mapping is invalid' do
         before do
-          allow(RouteMappingModel).to receive(:create).and_raise(Sequel::ValidationFailed.new('shizzle'))
+          allow(RouteMappingModel).to receive(:new).and_raise(Sequel::ValidationFailed.new('shizzle'))
         end
 
         it 'raises an InvalidRouteMapping error' do

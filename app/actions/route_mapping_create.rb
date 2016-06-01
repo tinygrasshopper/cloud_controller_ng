@@ -13,25 +13,32 @@ module VCAP::CloudController
     def add(app, route, process_model, message)
       validate_space!(app, route)
 
-      route_mapping = RouteMappingModel.create(
+      route_mapping = RouteMappingModel.new(
         app:          app,
         route:        route,
         process_type: message.process_type,
         app_port:     message.app_port
       )
 
-      unless process_model.nil?
-        process_model.add_route(route)
-        update_deas(process_model)
-      end
+      RouteMappingModel.db.transaction do
+        route_mapping.save
 
-      app_event_repository.record_map_route(
-        app,
-        route,
-        @user.try(:guid),
-        @user_email,
-        route_mapping: route_mapping
-      )
+        if process_model
+          RouteMapping.create(
+            app:      process_model,
+            route:    route,
+            app_port: message.app_port
+          )
+        end
+
+        app_event_repository.record_map_route(
+          app,
+          route,
+          @user.try(:guid),
+          @user_email,
+          route_mapping: route_mapping
+        )
+      end
 
       route_mapping
 
@@ -47,12 +54,6 @@ module VCAP::CloudController
 
     def validate_space!(app, route)
       raise InvalidRouteMapping.new(INVALID_SPACE_MESSAGE) unless app.space.guid == route.space.guid
-    end
-
-    def update_deas(process_model)
-      if process_model.dea_update_pending?
-        Dea::Client.update_uris(process_model)
-      end
     end
 
     def app_event_repository

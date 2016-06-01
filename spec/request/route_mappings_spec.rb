@@ -3,7 +3,7 @@ require 'spec_helper'
 describe 'Route Mappings' do
   let(:space) { VCAP::CloudController::Space.make }
   let(:app_model) { VCAP::CloudController::AppModel.make(space: space) }
-  let(:process) { VCAP::CloudController::App.make(space: space, app: app_model, type: 'worker') }
+  let(:process) { VCAP::CloudController::App.make(:process, space: space, app: app_model, type: 'worker') }
   let(:route) { VCAP::CloudController::Route.make(space: space) }
   let(:developer) { make_developer_for_space(space) }
   let(:developer_headers) do
