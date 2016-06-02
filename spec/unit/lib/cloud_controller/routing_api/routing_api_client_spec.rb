@@ -195,5 +195,28 @@ module VCAP::CloudController::RoutingApi
         end
       end
     end
+
+    describe '.router_group_guid' do
+      let(:status) { 200 }
+      let(:body) do
+        [
+          { guid: 'random-guid-1', name: 'group-name', type: 'tcp' },
+          { guid: 'router-group-guid', name: 'group-name-2', type: 'my-type' },
+        ].to_json
+      end
+
+      it 'provides the associated router name for the given guid' do
+        expect(routing_api.router_group_guid('group-name')).to eq('random-guid-1')
+      end
+
+
+      context 'when there is no router group guid for the given name' do
+        it 'raises an error' do
+          expect{
+            routing_api.router_group_guid('some-random-guid')
+          }.to raise_error(RouterGroupNotFound)
+        end
+      end
+    end
   end
 end

@@ -1,6 +1,7 @@
 module VCAP::CloudController::RoutingApi
   class RoutingApiUnavailable < StandardError; end
   class UaaUnavailable < StandardError; end
+  class RouterGroupNotFound < StandardError; end
 
   class Client
     attr_reader :skip_cert_verify, :routing_api_uri, :token_issuer
@@ -38,6 +39,17 @@ module VCAP::CloudController::RoutingApi
 
     def router_group(guid)
       router_groups.find { |rtr_group| rtr_group.guid == guid }
+    end
+
+    def router_group_guid(name)
+      router_groups.find do |rtr_group|
+        if rtr_group.name == name
+          return rtr_group.guid
+        else
+          logger.error("router group name not found: #{name}")
+          raise RouterGroupNotFound
+        end
+      end
     end
 
     private

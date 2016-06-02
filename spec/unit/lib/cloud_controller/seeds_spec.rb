@@ -159,9 +159,7 @@ module VCAP::CloudController
     describe '.create_seed_domains' do
       let(:config) do
         {
-          app_domains: [
-            'app.example.com'
-          ],
+          app_domains: app_domains,
           system_domain: 'system.example.com',
           system_domain_organization: 'the-system-org',
           quota_definitions: {
@@ -175,6 +173,7 @@ module VCAP::CloudController
           default_quota_definition: 'default'
         }
       end
+      let(:system_org) { Organization.find(name: 'the-system-org') }
 
       before do
         Domain.dataset.destroy
@@ -185,7 +184,9 @@ module VCAP::CloudController
       end
 
       context 'when the app domains do not include the system domain' do
-        it "makes shared domains for each of the config's app domains" do
+        let(:app_domains) { ['app.example.com'] }
+
+        it 'makes a shared domain for each app domain, including the system domain' do
           Seeds.create_seed_domains(config, Organization.find(name: 'the-system-org'))
           expect(Domain.shared_domains.map(&:name)).to eq(['app.example.com'])
         end
@@ -195,7 +196,6 @@ module VCAP::CloudController
         end
 
         it 'creates the system domain if the system domain does not exist' do
-          system_org = Organization.find(name: 'the-system-org')
           Seeds.create_seed_domains(config, system_org)
 
           system_domain = Domain.find(name: config[:system_domain])
@@ -212,19 +212,36 @@ module VCAP::CloudController
             name: config[:system_domain],
             owning_organization: Organization.make
           )
-          system_org = Organization.find(name: 'the-system-org')
           Seeds.create_seed_domains(config, system_org)
         end
       end
 
       context 'when the app domains include the system domain' do
+        let(:app_domains) { ['app.example.com'] }
+
         before do
           config[:app_domains] << config[:system_domain]
         end
 
-        it "makes shared domains for each of the config's app domains, including the system domain" do
+        it 'makes a shared domain for each app domain, including the system domain' do
           Seeds.create_seed_domains(config, Organization.find(name: 'the-system-org'))
           expect(Domain.shared_domains.map(&:name)).to eq(config[:app_domains])
+        end
+      end
+
+      context 'when the router api is enabled' do
+        context 'when a router group name is specified' do
+          let(:router_group_name) { 'default-tcp' }
+          let(:router_group_guid) { 'some-router-guid' }
+          let(:app_domains) { [{ name: 'app.example.com', router_group_name: router_group_name }] }
+          let(:routing_api_client) { double(RoutingApi::Client, router_group_guid: router_group_guid) }
+
+          it 'seeds the shared domains' do
+            Seeds.create_seed_domains(config, system_org)
+            seeded_guid = SharedDomain.where(name:router_group_name).select(:router_group_guid)
+
+            expect(seeded_guid).to eq(router_group_guid)
+          end
         end
       end
     end
